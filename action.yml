@@ -14,8 +14,56 @@ inputs:
     default: "1.15" # TODO: change to "module" when https://github.com/dominikh/go-tools/commit/c5ce990a4e39053fda5229d7ac0877c5d78dd84d is released
 
 runs:
-  using: docker
-  image: Dockerfile
-  args:
-    - ${{ inputs.path }}
-    - ${{ inputs.go-version }}
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        staticcheck_directory=$(
+          mktemp \
+            --directory \
+            --tmpdir="${RUNNER_TEMP}" \
+            staticcheck.XXXXXXXXXX
+        )
+
+        PATH="${staticcheck_directory}:${PATH}"
+
+        staticcheck_download_url=$(
+          curl \
+            --fail \
+            --header "Accept: application/vnd.github.v3+json" \
+            --show-error \
+            --silent \
+            https://api.github.com/repos/dominikh/go-tools/releases \
+          | \
+          jq --raw-output 'first(
+            .[] |
+            select(.prerelease | not) |
+            .assets[] |
+            select(.name == "staticcheck_linux_amd64.tar.gz") |
+            .browser_download_url
+          )'
+        )
+
+        curl \
+          --fail \
+          --location \
+          --show-error \
+          --silent \
+          "${staticcheck_download_url}" \
+        | \
+        tar \
+          --directory "${staticcheck_directory}" \
+          --extract \
+          --file - \
+          --gzip \
+          --strip-components 1 \
+          staticcheck/staticcheck
+
+        staticcheck --version
+
+        cd "${{ inputs.path }}"
+
+        staticcheck \
+          -f stylish \
+          --go "${{ inputs.go-version }}" \
+          ./...
