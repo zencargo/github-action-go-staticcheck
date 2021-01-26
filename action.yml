@@ -1,0 +1,21 @@
+name: Run staticcheck on a Go module
+
+description: Run staticcheck static analysis on a Go module
+
+inputs:
+  path:
+    description: Path to the module
+    required: true
+    default: .
+
+  go-version:
+    description: Version of Go to target
+    required: true
+    default: "1.15" # TODO: change to "module" when https://github.com/dominikh/go-tools/commit/c5ce990a4e39053fda5229d7ac0877c5d78dd84d is released
+
+runs:
+  using: docker
+  image: Dockerfile
+  args:
+    - ${{ inputs.path }}
+    - ${{ inputs.go-version }}
