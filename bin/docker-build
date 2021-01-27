@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o nounset
+set -o pipefail
+
+staticcheck_version=$(
+  curl \
+    --fail \
+    --header "Accept: application/vnd.github.v3+json" \
+    --show-error \
+    --silent \
+    https://api.github.com/repos/dominikh/go-tools/releases \
+  | \
+  jq \
+    --raw-output \
+    'first(
+      .[] |
+      select(.prerelease | not) |
+      select(.assets[] | .name | contains("staticcheck_linux_amd64.tar.gz"))|
+      .tag_name
+    )'
+)
+
+export DOCKER_BUILDKIT=1
+export PROGRESS_NO_TRUNC=1
+
+docker_repository="ghcr.io/zencargo/staticcheck"
+
+docker build . \
+  --build-arg STATICCHECK_VERSION="${staticcheck_version}" \
+  --tag "${docker_repository}:${staticcheck_version}"
+
+docker tag \
+  "${docker_repository}:${staticcheck_version}" \
+  "${docker_repository}:latest"
+
+if [[ "${1:-}" = "--push" ]]; then
+  docker push "${docker_repository}:${staticcheck_version}"
+  docker push "${docker_repository}:latest"
+fi
