@@ -32,4 +32,10 @@ Path of the module, relative to the GitHub workspace.
 
 **Required**, default: `1.15`
 
-Go version to [target](https://staticcheck.io/docs/#targeting-go-versions).
+Verson of Go to [target](https://staticcheck.io/docs/#targeting-go-versions).
+
+### staticcheck-version
+
+**Required**, default: `latest`
+
+Version of Staticcheck to run ([available versions](https://github.com/orgs/zencargo/packages/container/staticcheck/versions)).

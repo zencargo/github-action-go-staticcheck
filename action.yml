@@ -13,57 +13,32 @@ inputs:
     required: true
     default: "1.15" # TODO: change to "module" when https://github.com/dominikh/go-tools/commit/c5ce990a4e39053fda5229d7ac0877c5d78dd84d is released
 
+  staticcheck-version:
+    description: Version of staticcheck to run
+    required: true
+    default: latest
+
 runs:
   using: composite
   steps:
     - shell: bash
       run: |
-        staticcheck_directory=$(
-          mktemp \
-            --directory \
-            --tmpdir="${RUNNER_TEMP}" \
-            staticcheck.XXXXXXXXXX
-        )
+        docker_image="ghcr.io/zencargo/staticcheck:${{ inputs.staticcheck-version }}"
+        docker pull "${docker_image}" >/dev/null
 
-        PATH="${staticcheck_directory}:${PATH}"
+        go_pkg_mod="${HOME}/go/pkg/mod"
+        mkdir -p "${go_pkg_mod}"
 
-        staticcheck_download_url=$(
-          curl \
-            --fail \
-            --header "Accept: application/vnd.github.v3+json" \
-            --show-error \
-            --silent \
-            https://api.github.com/repos/dominikh/go-tools/releases \
-          | \
-          jq --raw-output 'first(
-            .[] |
-            select(.prerelease | not) |
-            .assets[] |
-            select(.name == "staticcheck_linux_amd64.tar.gz") |
-            .browser_download_url
-          )'
-        )
+        gid=$(id -g)
 
-        curl \
-          --fail \
-          --location \
-          --show-error \
-          --silent \
-          "${staticcheck_download_url}" \
-        | \
-        tar \
-          --directory "${staticcheck_directory}" \
-          --extract \
-          --file - \
-          --gzip \
-          --strip-components 1 \
-          staticcheck/staticcheck
-
-        staticcheck --version
-
-        cd "${{ inputs.path }}"
-
-        staticcheck \
+        docker run \
+          --env XDG_CACHE_HOME=/tmp \
+          --mount type="bind",source="${go_pkg_mod}",target="/go/pkg/mod" \
+          --mount type="bind",source="${GITHUB_WORKSPACE}",target="/workspace" \
+          --rm \
+          --user "${UID}:${gid}" \
+          --workdir "/workspace/${{ inputs.path }}" \
+          "${docker_image}" \
           -f stylish \
           --go "${{ inputs.go-version }}" \
           ./...

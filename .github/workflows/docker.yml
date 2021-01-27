@@ -1,0 +1,53 @@
+name: docker
+
+on:
+  pull_request:
+    branches:
+      - main
+
+    paths:
+      - .github/workflows/docker.yml
+      - bin/docker-build
+      - .dockerignore
+      - Dockerfile
+
+  push:
+    branches:
+      - main
+
+    paths:
+      - .github/workflows/docker.yml
+      - bin/docker-build
+      - .dockerignore
+      - Dockerfile
+
+  schedule:
+    - cron: 0 0 * * 1
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v2
+
+      - name: Log in to GitHub Container Registry
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo ${{ secrets.GH_PACKAGES_TOKEN }} \
+          | \
+          docker login \
+            --username zencargo-bot \
+            --password-stdin \
+            ghcr.io
+
+      - name: Build Docker image
+        run: |
+          args=()
+
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            args+=(--push)
+          fi
+
+          bin/docker-build "${args[@]}"
